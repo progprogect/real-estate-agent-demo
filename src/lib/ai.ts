@@ -114,11 +114,11 @@ export async function analyzeField(
 // ---------------------------------------------------------------------------
 
 async function chat(userMessage: string): Promise<string> {
-  // Sorting a transcript into named fields is extraction, not deep reasoning:
-  // low effort answers in about two thirds of the time with the same result.
-  // Set REASONING_EFFORT to "" when pointing ANALYSIS_MODEL at a model that
-  // does not accept the parameter.
-  const reasoningEffort = env('REASONING_EFFORT', 'low');
+  // Medium is the quality/latency sweet spot here: on a 90-second dictation
+  // "high" took ten seconds longer and returned the same field values, while
+  // "low" summarised the agent's hedges more tersely. Set REASONING_EFFORT to
+  // "" when pointing ANALYSIS_MODEL at a model without the parameter.
+  const reasoningEffort = env('REASONING_EFFORT', 'medium');
 
   const res = await fetch(`${OPENAI_BASE}/chat/completions`, {
     method: 'POST',

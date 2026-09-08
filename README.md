@@ -43,7 +43,7 @@ Demo accounts (password `demo1234`):
 | `OPENAI_API_KEY` | OpenAI key — the only key the app needs |
 | `TRANSCRIPTION_MODEL` | Speech-to-text model, default `gpt-transcribe` (`gpt-4o-transcribe` and `whisper-1` also verified) |
 | `ANALYSIS_MODEL` | Chat model that structures the transcript, default `gpt-5` |
-| `REASONING_EFFORT` | Reasoning depth for that model, default `low`; set to `""` for a model that rejects the parameter |
+| `REASONING_EFFORT` | Reasoning depth for that model, default `medium`; set to `""` for a model that rejects the parameter |
 | `MOCK_AI` | `true` = canned AI output, no keys needed (also the automatic fallback when no key is set) |
 | `FEEDBACK_ENDPOINT_URL` | Where confirmed feedback is POSTed; defaults to this app's own mock endpoint |
 | `FEEDBACK_ENDPOINT_TOKEN` | Bearer token the mock endpoint requires |
@@ -59,7 +59,9 @@ Node is pinned to 22 via `.nvmrc` and `engines`; the Prisma client is generated 
 
 **The AI key is optional to start.** With `OPENAI_API_KEY` empty the app automatically serves the canned analysis, so the whole flow stays demonstrable. Paste a real key and the next recording goes through the configured models — no redeploy, no other variable to change.
 
-Measured on a 70-second French dictation with the shipped defaults: about 4 s to transcribe and 6 s to structure, so roughly 10 s from the end of the recording to filled fields — inside the brief's 20-second target for 90 seconds of audio. `gpt-5-mini` was measured slower than `gpt-5` on this task, so reasoning depth, not model size, is the lever to pull if it ever needs to be faster.
+Measured on a 90-second-class French dictation with the shipped defaults: about 4 s to transcribe and 14 s to structure, so under 20 s from the end of the recording to filled fields — the target set in the brief.
+
+The model choice was measured, not assumed. `gpt-5-mini` ran slower than `gpt-5` on this task, so size is not the lever. `gpt-5-pro` took 117 s and returned the same fields, which rules it out for someone standing on a doorstep. At `high` reasoning effort `gpt-5` spent ten extra seconds and produced the same values as `medium`, so `medium` ships.
 
 ## Demo script (mirrors the brief, section 4.4)
 
