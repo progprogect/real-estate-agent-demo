@@ -15,6 +15,7 @@ enum Role {
 
 enum VisitStatus {
   PENDING
+  REMINDER_SENT
   DRAFT
   ANSWERED
   EXPIRED
@@ -41,13 +42,27 @@ model User {
 }
 
 model CriterionConfig {
-  id        String  @id @default(cuid())
-  key       String  @unique
-  label     String
-  hint      String
-  type      String  @default("text")
-  sortOrder Int     @default(0)
-  active    Boolean @default(true)
+  id    String @id @default(cuid())
+  /// Stable identifier sent to the agency endpoint. Generated once, never edited.
+  key   String @unique
+  label String
+  /// Optional description; it is what the AI is told to look for and what the
+  /// agent sees under "Points to cover".
+  hint  String @default("")
+  /// "text" | "rating" | "choice"
+  type      String   @default("text")
+  /// Allowed values when type is "choice"
+  options   String[] @default([])
+  /// Upper bound when type is "rating"
+  ratingMax Int      @default(5)
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+}
+
+/// Single-row-per-key application settings edited by administrators.
+model AppSetting {
+  key   String @id
+  value String
 }
 
 model Visit {
@@ -64,10 +79,48 @@ model Visit {
   agent         User           @relation(fields: [agentId], references: [id])
   draft         FeedbackDraft?
   submission    Submission?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  recordings    Recording[]
+  /// Reminder bookkeeping for the state machine; the reminders themselves are
+  /// sent by the agency, we only signal.
+  remindersSent  Int       @default(0)
+  dueEventSentAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([agentId, status])
+}
+
+/// Log of every outbound signal to the agency's reminder engine, including the
+/// ones that could not be delivered, so failures stay visible.
+model WebhookEvent {
+  id           String   @id @default(cuid())
+  visitId      String?
+  type         String
+  payload      Json
+  status       String
+  responseCode Int?
+  error        String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// One dictation take. Several takes accumulate on the same viewing and each
+/// one can extend or correct what the earlier ones produced.
+model Recording {
+  id        String   @id @default(cuid())
+  visitId   String
+  visit     Visit    @relation(fields: [visitId], references: [id])
+  /// 1-based position in the take list for this viewing
+  index     Int
+  /// "general" (feeds every field) or "field" (feeds one field only)
+  mode      String   @default("general")
+  fieldKey  String?
+  verbatim  String
+  durationS Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([visitId, index])
 }
 
 model FeedbackDraft {

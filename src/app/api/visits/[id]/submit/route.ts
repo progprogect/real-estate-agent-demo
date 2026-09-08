@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/session';
+import { sendWebhook } from '@/lib/webhooks';
 import type { DraftValues } from '@/lib/types';
 
 export const maxDuration = 60;
@@ -98,6 +99,11 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
           }),
           prisma.visit.update({ where: { id }, data: { status: 'ANSWERED' } }),
         ]);
+        // Tell the agency's reminder engine to stop chasing this viewing.
+        await sendWebhook('feedback_received', visit, {
+          submitted_at: payload.submitted_at,
+          input_mode: payload.input_mode,
+        });
         return NextResponse.json({ ok: true });
       }
       lastError = `Endpoint returned ${res.status}`;

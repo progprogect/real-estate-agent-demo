@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { startRecording, type RecorderHandle } from '@/lib/audio-client';
 import { t } from '@/lib/strings';
 import { formatVisitTime } from '@/lib/format';
-import type { AnalyzeResponse, CriterionView, DraftValues } from '@/lib/types';
+import type { AnalyzeResponse, CriterionView, DraftValues, TakeView } from '@/lib/types';
+import { FieldEditor, FieldValue } from './FieldInput';
 
 type Props = {
   visitId: string;
@@ -16,6 +17,7 @@ type Props = {
   initialValues: DraftValues;
   initialGeneralFeedback: string;
   initialVerbatim: string;
+  initialTakes: TakeView[];
 };
 
 type RecState =
@@ -33,6 +35,7 @@ export function FeedbackScreen({
   initialValues,
   initialGeneralFeedback,
   initialVerbatim,
+  initialTakes,
 }: Props) {
   const [values, setValues] = useState<DraftValues>(() => {
     const base: DraftValues = {};
@@ -44,13 +47,12 @@ export function FeedbackScreen({
   });
   const [generalFeedback, setGeneralFeedback] = useState(initialGeneralFeedback);
   const [verbatim, setVerbatim] = useState(initialVerbatim);
-  const [audioDurationS, setAudioDurationS] = useState(0);
+  const [takes, setTakes] = useState<TakeView[]>(initialTakes);
   const [rec, setRec] = useState<RecState>({ phase: 'idle' });
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [micError, setMicError] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [analysisDone, setAnalysisDone] = useState(false);
   const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'failed' | 'done'>('idle');
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -62,6 +64,8 @@ export function FeedbackScreen({
     () => formatVisitTime(new Date(visitDatetimeIso)),
     [visitDatetimeIso]
   );
+  const audioDurationS = useMemo(() => takes.reduce((sum, tk) => sum + tk.durationS, 0), [takes]);
+  const hasAnalysis = takes.length > 0;
 
   // ---- draft autosave -------------------------------------------------------
 
@@ -140,47 +144,52 @@ export function FeedbackScreen({
       const form = new FormData();
       form.append('audio', wav, 'audio.wav');
       form.append('durationS', String(durationS));
-      if (target === 'general') {
-        form.append('mode', 'general');
-      } else {
-        form.append('mode', 'field');
-        form.append('fieldKey', target);
-      }
+      form.append('mode', target === 'general' ? 'general' : 'field');
+      if (target !== 'general') form.append('fieldKey', target);
+
       const res = await fetch(`/api/visits/${visitId}/analyze`, { method: 'POST', body: form });
       if (!res.ok) throw new Error(await res.text());
       const data = (await res.json()) as AnalyzeResponse;
 
+      setTakes((prev) => [...prev, data.take]);
+
       if (data.mode === 'general') {
-        setVerbatim((prev) => (prev ? `${prev}\n${data.verbatim}` : data.verbatim));
+        setVerbatim(data.verbatim);
         if (data.generalFeedback) setGeneralFeedback(data.generalFeedback);
         setValues((prev) => {
           const next = { ...prev };
           for (const c of criteria) {
             const analyzed = data.fields[c.key];
             if (!analyzed) continue;
-            // A new general pass never touches fields the agent already confirmed.
-            if (prev[c.key]?.confirmed) continue;
+            const before = prev[c.key];
+            const changed = before.value.trim() !== analyzed.value.trim();
+            if (!changed) continue;
             next[c.key] = {
               value: analyzed.value,
               state: analyzed.state,
+              // A later take can revise anything, but a revised field loses its
+              // confirmation so the agent has to read it again.
               confirmed: false,
               editedByAgent: false,
+              updated: Boolean(before.value),
             };
           }
           return next;
         });
-        setAudioDurationS((s) => s + durationS);
-        setAnalysisDone(true);
       } else {
-        setValues((prev) => ({
-          ...prev,
-          [data.fieldKey]: {
-            value: data.field.value,
-            state: data.field.state,
-            confirmed: false,
-            editedByAgent: false,
-          },
-        }));
+        setValues((prev) => {
+          const before = prev[data.fieldKey];
+          return {
+            ...prev,
+            [data.fieldKey]: {
+              value: data.field.value,
+              state: data.field.state,
+              confirmed: false,
+              editedByAgent: false,
+              updated: Boolean(before?.value),
+            },
+          };
+        });
       }
       markDirty();
       setRec({ phase: 'idle' });
@@ -200,7 +209,7 @@ export function FeedbackScreen({
   function confirmField(key: string) {
     setValues((prev) => ({
       ...prev,
-      [key]: { ...prev[key], confirmed: !prev[key].confirmed },
+      [key]: { ...prev[key], confirmed: !prev[key].confirmed, updated: false },
     }));
     markDirty();
   }
@@ -219,6 +228,7 @@ export function FeedbackScreen({
         value: editText,
         state: editText.trim() ? 'filled' : 'missing',
         editedByAgent: true,
+        updated: false,
       },
     }));
     setEditingKey(null);
@@ -229,10 +239,9 @@ export function FeedbackScreen({
 
   async function submitAll() {
     setSubmitState('submitting');
-    // Confirm everything that has content, then persist and submit.
     const confirmedValues: DraftValues = {};
     for (const [k, v] of Object.entries(values)) {
-      confirmedValues[k] = { ...v, confirmed: v.confirmed || v.value.trim().length > 0 };
+      confirmedValues[k] = { ...v, confirmed: v.confirmed || v.value.trim().length > 0, updated: false };
     }
     setValues(confirmedValues);
     try {
@@ -275,7 +284,6 @@ export function FeedbackScreen({
 
   return (
     <main className="pb-32">
-      {/* Header */}
       <header className="px-5 pb-4 pt-5">
         <Link href="/visits" className="text-sm text-pine underline underline-offset-2">
           ← {t.feedback.backToList}
@@ -294,27 +302,39 @@ export function FeedbackScreen({
             {criteria.map((c, i) => (
               <li key={c.key} className="flex gap-2">
                 <span className="tnum font-display font-semibold text-pine">{i + 1}.</span>
-                {c.hint}
+                <span>
+                  {c.hint || c.label}
+                  {c.type === 'rating' && (
+                    <span className="text-stone"> · {t.feedback.ratingHint(c.ratingMax)}</span>
+                  )}
+                  {c.type === 'choice' && (
+                    <span className="text-stone"> · {c.options.join(' / ')}</span>
+                  )}
+                </span>
               </li>
             ))}
           </ol>
         </section>
 
-        {/* General recorder */}
+        {/* Recorder */}
         <section className="rounded-card border border-line bg-surface p-4 text-center">
           {rec.phase === 'idle' && !generalBusy && (
             <>
-              <p className="mb-4 text-sm text-stone">{t.feedback.recordCta}</p>
+              <p className="mb-4 text-sm text-stone">
+                {hasAnalysis ? t.feedback.addTakeHint : t.feedback.recordCta}
+              </p>
               <button
                 type="button"
                 onClick={() => beginRecording('general')}
                 disabled={processing}
                 className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-brick text-paper disabled:opacity-50"
-                aria-label={t.feedback.startRecording}
+                aria-label={hasAnalysis ? t.feedback.addTake : t.feedback.startRecording}
               >
                 <MicIcon className="h-8 w-8" />
               </button>
-              <p className="mt-3 text-sm font-medium">{t.feedback.startRecording}</p>
+              <p className="mt-3 text-sm font-medium">
+                {hasAnalysis ? t.feedback.addTake : t.feedback.startRecording}
+              </p>
             </>
           )}
 
@@ -368,10 +388,34 @@ export function FeedbackScreen({
 
           {micError && <p className="mt-3 text-sm text-brick">{t.feedback.micDenied}</p>}
           {analysisError && <p className="mt-3 text-sm text-brick">{analysisError}</p>}
-          {analysisDone && rec.phase === 'idle' && !analysisError && (
-            <p className="mt-3 text-sm font-medium text-moss">{t.feedback.fieldsFilled}</p>
-          )}
         </section>
+
+        {/* Takes */}
+        {takes.length > 0 && (
+          <section className="rounded-card border border-line bg-paper p-4">
+            <p className="overline-label mb-2">
+              {t.feedback.takes} <span className="tnum">({takes.length})</span>
+            </p>
+            <ol className="space-y-1.5">
+              {takes.map((tk) => {
+                const label = criteria.find((c) => c.key === tk.fieldKey)?.label;
+                return (
+                  <li key={tk.index} className="flex items-baseline gap-2 text-sm">
+                    <span className="shrink-0 font-medium">
+                      {tk.mode === 'field' && label
+                        ? t.feedback.takeField(tk.index, label)
+                        : t.feedback.take(tk.index)}
+                    </span>
+                    <span className="tnum shrink-0 text-xs text-stone">
+                      {formatElapsed(tk.durationS)}
+                    </span>
+                    <span className="truncate text-xs text-stone">{tk.verbatim}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        )}
 
         {/* Criterion fields */}
         {criteria.map((c) => {
@@ -386,9 +430,11 @@ export function FeedbackScreen({
               className={`rounded-card border p-4 ${
                 v.confirmed
                   ? 'border-pine/40 bg-pine-soft'
-                  : needsAttention && analysisDone
-                    ? 'border-line bg-amber-soft/40'
-                    : 'border-line bg-surface'
+                  : v.updated
+                    ? 'border-pine/40 bg-surface'
+                    : needsAttention && hasAnalysis
+                      ? 'border-line bg-amber-soft/40'
+                      : 'border-line bg-surface'
               }`}
             >
               <div className="mb-2 flex items-center justify-between">
@@ -420,14 +466,7 @@ export function FeedbackScreen({
                 <p className="text-sm text-stone">{t.feedback.processingField}</p>
               ) : isEditing ? (
                 <>
-                  <textarea
-                    value={editText}
-                    onChange={(e) => setEditText(e.target.value)}
-                    rows={3}
-                    className="w-full rounded-card border border-line bg-surface p-3 text-[15px] outline-none focus:border-pine focus:ring-2 focus:ring-pine/30"
-                    placeholder={t.feedback.typeHere}
-                    autoFocus
-                  />
+                  <FieldEditor criterion={c} value={editText} onChange={setEditText} />
                   <div className="mt-2 flex gap-2">
                     <button
                       type="button"
@@ -448,21 +487,24 @@ export function FeedbackScreen({
               ) : (
                 <>
                   {v.value ? (
-                    <p className="text-[15px] leading-relaxed">{v.value}</p>
+                    <FieldValue criterion={c} value={v.value} />
                   ) : (
                     <button
                       type="button"
                       onClick={() => startEdit(c.key)}
                       className="w-full rounded-card border border-dashed border-line px-3 py-3 text-left text-sm text-stone"
                     >
-                      {t.feedback.typeHere}
+                      {c.type === 'choice' ? t.feedback.chooseOption : t.feedback.typeHere}
                     </button>
                   )}
 
+                  {v.updated && (
+                    <p className="mt-2 text-xs font-medium text-pine">● {t.feedback.updatedByTake}</p>
+                  )}
                   {v.state === 'incomplete' && (
                     <p className="mt-2 text-xs font-medium text-amber">● {t.feedback.incomplete}</p>
                   )}
-                  {v.state === 'missing' && analysisDone && (
+                  {v.state === 'missing' && hasAnalysis && (
                     <p className="mt-2 text-xs font-medium text-amber">● {t.feedback.missing}</p>
                   )}
 
@@ -472,9 +514,7 @@ export function FeedbackScreen({
                         type="button"
                         onClick={() => confirmField(c.key)}
                         className={`flex h-10 flex-1 items-center justify-center gap-1.5 rounded-card text-sm font-medium ${
-                          v.confirmed
-                            ? 'bg-pine text-paper'
-                            : 'border border-pine text-pine'
+                          v.confirmed ? 'bg-pine text-paper' : 'border border-pine text-pine'
                         }`}
                       >
                         <CheckIcon className="h-4 w-4" />
@@ -553,7 +593,7 @@ export function FeedbackScreen({
         {verbatim && (
           <section className="rounded-card border border-line bg-paper p-4">
             <p className="overline-label mb-2">{t.feedback.verbatim}</p>
-            <p className="font-display text-[15px] italic leading-relaxed text-stone">
+            <p className="whitespace-pre-line font-display text-[15px] italic leading-relaxed text-stone">
               “{verbatim}”
             </p>
             <p className="mt-2 text-xs text-stone">{t.feedback.verbatimNote}</p>
@@ -566,20 +606,18 @@ export function FeedbackScreen({
         {submitState === 'failed' && (
           <p className="mb-2 text-center text-xs font-medium text-brick">{t.feedback.submitFailed}</p>
         )}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={submitAll}
-            disabled={submitState === 'submitting' || processing || !hasAnyContent(values, generalFeedback)}
-            className="h-12 flex-1 rounded-card bg-ink text-base font-medium text-paper disabled:opacity-50"
-          >
-            {submitState === 'submitting'
-              ? t.feedback.submitting
-              : submitState === 'failed'
-                ? t.feedback.retry
-                : t.feedback.confirmAll}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={submitAll}
+          disabled={submitState === 'submitting' || processing || !hasAnyContent(values, generalFeedback)}
+          className="h-12 w-full rounded-card bg-ink text-base font-medium text-paper disabled:opacity-50"
+        >
+          {submitState === 'submitting'
+            ? t.feedback.submitting
+            : submitState === 'failed'
+              ? t.feedback.retry
+              : t.feedback.confirmAll}
+        </button>
         {draftSavedAt && submitState === 'idle' && (
           <p className="mt-1.5 text-center text-xs text-stone">{t.feedback.draftSaved}</p>
         )}

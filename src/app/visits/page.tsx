@@ -28,7 +28,9 @@ export default async function VisitsPage({
   });
 
   const groups: Record<Tab, typeof visits> = {
-    todo: visits.filter((v) => v.status === 'PENDING' || v.status === 'DRAFT'),
+    todo: visits.filter(
+      (v) => v.status === 'PENDING' || v.status === 'REMINDER_SENT' || v.status === 'DRAFT'
+    ),
     done: visits.filter((v) => v.status === 'ANSWERED'),
     expired: visits.filter((v) => v.status === 'EXPIRED' || v.status === 'CANCELLED'),
   };
@@ -78,7 +80,8 @@ export default async function VisitsPage({
           <ul className="overflow-hidden rounded-card border border-line bg-surface">
             {groups[tab].map((v, i) => {
               const { time, date } = formatVisitTime(v.visitDatetime);
-              const clickable = tab === 'todo';
+              // Done and expired rows open a read-only record of what was sent.
+              const clickable = v.status !== 'CANCELLED';
               const row = (
                 <div className={`flex items-center gap-4 px-4 py-3.5 ${i > 0 ? 'dotted-divider' : ''}`}>
                   <div className="w-14 shrink-0 text-center">
