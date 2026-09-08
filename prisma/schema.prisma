@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  AGENT
+  ADMIN
+}
+
+enum VisitStatus {
+  PENDING
+  DRAFT
+  ANSWERED
+  EXPIRED
+  CANCELLED
+}
+
+enum SubmissionStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  role         Role       @default(AGENT)
+  branch       String?
+  zohoUserId   String?    @unique
+  createdAt    DateTime   @default(now())
+  visits       Visit[]
+  auditLogs    AuditLog[]
+}
+
+model CriterionConfig {
+  id        String  @id @default(cuid())
+  key       String  @unique
+  label     String
+  hint      String
+  type      String  @default("text")
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+}
+
+model Visit {
+  id            String         @id @default(cuid())
+  zohoEventId   String         @unique
+  zohoDealId    String?
+  zohoContactId String?
+  propertyRef   String
+  address       String
+  prospectName  String
+  visitDatetime DateTime
+  status        VisitStatus    @default(PENDING)
+  agentId       String
+  agent         User           @relation(fields: [agentId], references: [id])
+  draft         FeedbackDraft?
+  submission    Submission?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([agentId, status])
+}
+
+model FeedbackDraft {
+  id              String   @id @default(cuid())
+  visitId         String   @unique
+  visit           Visit    @relation(fields: [visitId], references: [id])
+  /// Map of criterion key -> { value, state: "filled" | "incomplete" | "missing", confirmed, editedByAgent }
+  values          Json     @default("{}")
+  generalFeedback String   @default("")
+  verbatim        String   @default("")
+  inputMode       String   @default("voice")
+  audioDurationS  Int      @default(0)
+  updatedAt       DateTime @updatedAt
+}
+
+model Submission {
+  id             String           @id @default(cuid())
+  visitId        String           @unique
+  visit          Visit            @relation(fields: [visitId], references: [id])
+  idempotencyKey String           @unique
+  payload        Json
+  status         SubmissionStatus @default(PENDING)
+  attempts       Int              @default(0)
+  lastError      String?
+  submittedAt    DateTime         @default(now())
+  deliveredAt    DateTime?
+}
+
+/// Inbox of the mock "agency endpoint" (stands in for the Hi Folks endpoint).
+model InboxEvent {
+  id             String   @id @default(cuid())
+  idempotencyKey String   @unique
+  payload        Json
+  receivedAt     DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

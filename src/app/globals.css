@@ -1,26 +1,60 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Field Ledger design tokens — see docs/DESIGN_KIT.md */
+@theme {
+  --color-ink: #1e3a2b;
+  --color-pine: #2c5240;
+  --color-pine-soft: #eaf0ea;
+  --color-paper: #f5f2ea;
+  --color-surface: #fffdf8;
+  --color-line: #e2dccc;
+  --color-stone: #6e7468;
+  --color-brick: #b9532f;
+  --color-brick-soft: #f6e7df;
+  --color-amber: #9a7519;
+  --color-amber-soft: #f3ecd9;
+  --color-moss: #3f7d4e;
+  --color-moss-soft: #e7f0e8;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --font-display: var(--font-fraunces), "Georgia", serif;
+  --font-sans: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --radius-card: 10px;
+  --radius-chip: 8px;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.overline-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-stone);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+.dotted-divider {
+  border-top: 1px dotted var(--color-line);
+}
+
+.bottom-bar-shadow {
+  box-shadow: 0 -4px 16px rgb(30 58 43 / 0.08);
+}
+
+@keyframes pulse-record {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(185 83 47 / 0.35); }
+  50% { box-shadow: 0 0 0 14px rgb(185 83 47 / 0); }
+}
+
+.recording-pulse {
+  animation: pulse-record 1.6s ease-out infinite;
 }
