@@ -25,7 +25,6 @@ export default async function VisitsPage({
   const visits = await prisma.visit.findMany({
     where: { agentId: session.userId },
     orderBy: { visitDatetime: 'desc' },
-    include: { draft: { select: { id: true } } },
   });
 
   const groups: Record<Tab, typeof visits> = {

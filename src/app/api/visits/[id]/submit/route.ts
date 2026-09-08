@@ -48,7 +48,8 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     },
     agent: { email: visit.agent.email, zoho_user_id: visit.agent.zohoUserId },
     submitted_at: new Date().toISOString(),
-    input_mode: visit.draft.inputMode,
+    // Voice when anything was dictated, text when the agent typed everything.
+    input_mode: visit.draft.verbatim.trim() ? 'voice' : 'text',
     criteria: Object.entries(values).map(([key, v]) => ({
       key,
       value: v.value,

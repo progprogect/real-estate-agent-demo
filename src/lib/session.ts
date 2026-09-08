@@ -10,9 +10,18 @@ export type SessionData = {
 
 const THIRTY_DAYS = 60 * 60 * 24 * 30;
 
+function sessionSecret(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('SESSION_SECRET must be set in production');
+  }
+  return 'insecure-dev-secret-do-not-use-in-prod';
+}
+
 export const sessionOptions: SessionOptions = {
   cookieName: 'vfa_session',
-  password: process.env.SESSION_SECRET ?? 'insecure-dev-secret-do-not-use-in-prod',
+  password: sessionSecret(),
   ttl: THIRTY_DAYS,
   cookieOptions: {
     httpOnly: true,

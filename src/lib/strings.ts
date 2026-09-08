@@ -66,6 +66,7 @@ export const t = {
     submitting: 'Saving your feedback…',
     submitted: 'Your feedback has been saved.',
     submitFailed: 'We could not save your feedback. It will be retried — nothing is lost.',
+    analysisFailed: 'We could not process your recording. Try again.',
     retry: 'Try again',
     draftSaved: 'Draft saved',
     typeHere: 'Type or use the microphone…',

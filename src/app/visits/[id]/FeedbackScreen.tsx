@@ -122,7 +122,7 @@ export function FeedbackScreen({
       }
     } catch {
       setRec({ phase: 'idle' });
-      setAnalysisError(t.feedback.submitFailed);
+      setAnalysisError(t.feedback.analysisFailed);
     }
   }
 
@@ -181,13 +181,17 @@ export function FeedbackScreen({
             editedByAgent: false,
           },
         }));
-        setVerbatim((prev) => prev); // verbatim of field additions is appended server-side only for general mode
       }
       markDirty();
       setRec({ phase: 'idle' });
     } catch {
-      setAnalysisError(t.feedback.submitFailed);
-      setRec({ phase: 'idle' });
+      setAnalysisError(t.feedback.analysisFailed);
+      // Keep the general recording so the agent can retry without re-dictating.
+      if (target === 'general') {
+        setRec({ phase: 'recorded', wav, durationS, url: URL.createObjectURL(wav) });
+      } else {
+        setRec({ phase: 'idle' });
+      }
     }
   }
 
@@ -232,11 +236,12 @@ export function FeedbackScreen({
     }
     setValues(confirmedValues);
     try {
-      await fetch(`/api/visits/${visitId}/draft`, {
+      const draftRes = await fetch(`/api/visits/${visitId}/draft`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ values: confirmedValues, generalFeedback, verbatim, audioDurationS }),
       });
+      if (!draftRes.ok) throw new Error('Draft save failed');
       const res = await fetch(`/api/visits/${visitId}/submit`, { method: 'POST' });
       if (!res.ok) throw new Error(await res.text());
       setSubmitState('done');
