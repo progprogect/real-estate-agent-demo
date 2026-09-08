@@ -40,11 +40,11 @@ Demo accounts (password `demo1234`):
 |---|---|
 | `DATABASE_URL` | Postgres connection string |
 | `SESSION_SECRET` | 32+ char secret for session cookies |
-| `OPENROUTER_API_KEY` | OpenRouter key (transcription + analysis) |
-| `OPENAI_API_KEY` | Optional; switches transcription to OpenAI Whisper-family |
-| `OPENAI_TRANSCRIPTION_MODEL` | Default `gpt-4o-transcribe` |
-| `TRANSCRIPTION_MODEL` | OpenRouter audio-capable model, default `google/gemini-2.5-pro` |
-| `ANALYSIS_MODEL` | OpenRouter analysis model, default `anthropic/claude-sonnet-4.5` |
+| `OPENROUTER_API_KEY` | OpenRouter key — the only key the app needs (transcription + analysis) |
+| `TRANSCRIPTION_MODEL` | Audio-capable model on OpenRouter, default `openai/gpt-audio` |
+| `ANALYSIS_MODEL` | Analysis model on OpenRouter, default `anthropic/claude-sonnet-5` |
+| `OPENAI_API_KEY` | Optional. OpenRouter has no speech-to-text endpoint, so this is the only route to Whisper-family transcription; set it to switch transcription to OpenAI directly |
+| `OPENAI_TRANSCRIPTION_MODEL` | Used only with `OPENAI_API_KEY`, default `gpt-4o-transcribe` |
 | `MOCK_AI` | `true` = canned AI output, no keys needed (also the automatic fallback when no key is set) |
 | `FEEDBACK_ENDPOINT_URL` | Where confirmed feedback is POSTed; defaults to this app's own mock endpoint |
 | `FEEDBACK_ENDPOINT_TOKEN` | Bearer token the mock endpoint requires |
@@ -68,5 +68,6 @@ Node is pinned to 22 via `.nvmrc` and `engines`; the Prisma client is generated 
 4. Tap the small mic **on the price field** and add one sentence — only that field updates.
 5. Edit any field with the pencil; confirm fields individually or hit **Confirm all and submit**. The payload goes to the endpoint in one call with an idempotency key; the viewing moves to Done and is never offered again.
 6. Sign in as the admin: response rate per agent, every viewing's status, failed submissions, CSV export. Admin access is written to an audit log.
+7. **Reset demo data** at the bottom of the admin view clears every draft and submission and restores the viewings with fresh timestamps, so the demo can be run as many times as you like.
 
 Design system: see [docs/DESIGN_KIT.md](docs/DESIGN_KIT.md).

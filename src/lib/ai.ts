@@ -3,8 +3,12 @@
  *
  * Providers are configuration, not code (a brief requirement):
  * - MOCK_AI=true            -> deterministic canned output, no keys needed (offline demo).
- * - OPENAI_API_KEY set      -> transcription via OpenAI Whisper-family models.
- * - otherwise               -> transcription via an audio-capable model on OpenRouter.
+ * - OPENAI_API_KEY set      -> transcription via OpenAI's dedicated speech-to-text
+ *                              endpoint (Whisper family). Optional: OpenRouter does not
+ *                              proxy that endpoint, so it is the only route to Whisper.
+ * - otherwise               -> transcription via an audio-capable chat model on
+ *                              OpenRouter (OpenAI's own audio models included), which
+ *                              keeps the whole app on a single key.
  * - Analysis always runs on ANALYSIS_MODEL via OpenRouter.
  */
 
@@ -58,7 +62,7 @@ async function transcribeOpenAI(audio: Buffer, format: string, key: string): Pro
 
 async function transcribeOpenRouter(audio: Buffer, format: 'wav' | 'mp3'): Promise<string> {
   const body = {
-    model: env('TRANSCRIPTION_MODEL', 'google/gemini-2.5-pro'),
+    model: env('TRANSCRIPTION_MODEL', 'openai/gpt-audio'),
     messages: [
       {
         role: 'user',
@@ -105,7 +109,7 @@ export async function analyzeGeneral(
     .join('\n');
   const user = `Configured criteria:\n${criteriaList}\n\nAgent's dictated feedback (verbatim):\n"""${verbatim}"""`;
   const raw = await callOpenRouter({
-    model: env('ANALYSIS_MODEL', 'anthropic/claude-sonnet-4.5'),
+    model: env('ANALYSIS_MODEL', 'anthropic/claude-sonnet-5'),
     messages: [
       { role: 'system', content: ANALYSIS_RULES },
       { role: 'user', content: user },
@@ -133,7 +137,7 @@ export async function analyzeField(
 
   const user = `Single criterion:\n- key: ${criterion.key} — ${criterion.hint}\n\nThe agent recorded an addition for THIS criterion only:\n"""${verbatim}"""\n\nReturn JSON for this one key only. general_feedback must be an empty string.`;
   const raw = await callOpenRouter({
-    model: env('ANALYSIS_MODEL', 'anthropic/claude-sonnet-4.5'),
+    model: env('ANALYSIS_MODEL', 'anthropic/claude-sonnet-5'),
     messages: [
       { role: 'system', content: ANALYSIS_RULES },
       { role: 'user', content: user },

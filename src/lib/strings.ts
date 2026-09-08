@@ -95,6 +95,9 @@ export const t = {
     noErrors: 'No failed submissions.',
     inbox: 'Endpoint deliveries',
     inboxNote: 'Payloads received by the agency endpoint (mocked in this demo).',
+    resetDemo: 'Reset demo data',
+    resetting: 'Resetting…',
+    resetNote: 'Clears every draft and submission and restores the viewings, so the demo can be run again.',
   },
 
   status: {

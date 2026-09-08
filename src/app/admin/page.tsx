@@ -5,6 +5,7 @@ import { t } from '@/lib/strings';
 import { formatVisitTime, formatWaiting } from '@/lib/format';
 import { AppHeader } from '@/components/AppHeader';
 import { StatusChip } from '@/components/StatusChip';
+import { ResetDemoButton } from '@/components/ResetDemoButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -146,9 +147,11 @@ export default async function AdminPage() {
           </ul>
         </section>
 
-        <p className="text-xs text-stone">
+        <p className="mb-5 text-xs text-stone">
           {t.admin.inbox}: <span className="tnum font-medium">{inboxCount}</span> — {t.admin.inboxNote}
         </p>
+
+        <ResetDemoButton />
       </div>
     </main>
   );
