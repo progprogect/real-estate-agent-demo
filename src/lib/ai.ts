@@ -114,6 +114,12 @@ export async function analyzeField(
 // ---------------------------------------------------------------------------
 
 async function chat(userMessage: string): Promise<string> {
+  // Sorting a transcript into named fields is extraction, not deep reasoning:
+  // low effort answers in about two thirds of the time with the same result.
+  // Set REASONING_EFFORT to "" when pointing ANALYSIS_MODEL at a model that
+  // does not accept the parameter.
+  const reasoningEffort = env('REASONING_EFFORT', 'low');
+
   const res = await fetch(`${OPENAI_BASE}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -125,6 +131,7 @@ async function chat(userMessage: string): Promise<string> {
     body: JSON.stringify({
       model: env('ANALYSIS_MODEL', 'gpt-5'),
       response_format: { type: 'json_object' },
+      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
       messages: [
         { role: 'system', content: ANALYSIS_RULES },
         { role: 'user', content: userMessage },
