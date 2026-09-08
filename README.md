@@ -51,10 +51,14 @@ Demo accounts (password `demo1234`):
 
 ## Deploying to Railway
 
-1. Create a Railway project, add a **PostgreSQL** service.
-2. Add a service from this repository. `railway.json` configures the build and runs `prisma migrate deploy && prisma db seed` before each deploy (the seed is idempotent).
-3. Set variables on the app service: `DATABASE_URL` (reference the Postgres service), `SESSION_SECRET`, `OPENROUTER_API_KEY`, `FEEDBACK_ENDPOINT_TOKEN`, and `MOCK_AI=false`.
-4. Open the public URL — the app serves everything, including the mock agency endpoint.
+1. Create a Railway project and add a **PostgreSQL** service.
+2. Add a service from this repository. `railway.json` selects the Nixpacks builder and starts the app with `npm run start:prod`, which applies migrations and seeds the demo data before serving (both are idempotent, so restarts are safe).
+3. Set variables on the app service: `DATABASE_URL` (reference the Postgres service as `${{Postgres.DATABASE_URL}}`), `SESSION_SECRET`, `FEEDBACK_ENDPOINT_TOKEN`, `OPENROUTER_API_KEY`, and `MOCK_AI=false`.
+4. Generate a public domain. `FEEDBACK_ENDPOINT_URL` can stay unset: the app derives the mock endpoint from `RAILWAY_PUBLIC_DOMAIN`.
+
+Node is pinned to 22 via `.nvmrc` and `engines`; the Prisma client is generated on `postinstall`.
+
+**AI keys are optional to start.** With `OPENROUTER_API_KEY` empty the app automatically serves the canned analysis, so the whole flow is demonstrable. Paste a real key and the next recording goes through the configured models — no redeploy, no other variable to change.
 
 ## Demo script (mirrors the brief, section 4.4)
 
