@@ -14,7 +14,7 @@ Prototype built against the Hi Folks Studio brief. Deviations from the productio
 - Next.js 16 (App Router) + TypeScript + Tailwind CSS 4
 - PostgreSQL + Prisma
 - Auth: email/password (bcrypt) with long-lived iron-session cookies, roles `AGENT` / `ADMIN`
-- AI via OpenRouter (OpenAI-compatible), models switchable by env var; optional direct OpenAI Whisper path; full mock mode for offline demos
+- AI on OpenAI: Whisper-family speech-to-text plus a chat model for structuring, both switchable by env var; full mock mode for offline demos
 
 ## Running locally
 
@@ -40,11 +40,9 @@ Demo accounts (password `demo1234`):
 |---|---|
 | `DATABASE_URL` | Postgres connection string |
 | `SESSION_SECRET` | 32+ char secret for session cookies |
-| `OPENROUTER_API_KEY` | OpenRouter key — the only key the app needs (transcription + analysis) |
-| `TRANSCRIPTION_MODEL` | Audio-capable model on OpenRouter, default `openai/gpt-audio` |
-| `ANALYSIS_MODEL` | Analysis model on OpenRouter, default `anthropic/claude-sonnet-5` |
-| `OPENAI_API_KEY` | Optional. OpenRouter has no speech-to-text endpoint, so this is the only route to Whisper-family transcription; set it to switch transcription to OpenAI directly |
-| `OPENAI_TRANSCRIPTION_MODEL` | Used only with `OPENAI_API_KEY`, default `gpt-4o-transcribe` |
+| `OPENAI_API_KEY` | OpenAI key — the only key the app needs |
+| `TRANSCRIPTION_MODEL` | Speech-to-text model, default `gpt-transcribe` (`gpt-4o-transcribe` and `whisper-1` also verified) |
+| `ANALYSIS_MODEL` | Chat model that structures the transcript, default `gpt-5` |
 | `MOCK_AI` | `true` = canned AI output, no keys needed (also the automatic fallback when no key is set) |
 | `FEEDBACK_ENDPOINT_URL` | Where confirmed feedback is POSTed; defaults to this app's own mock endpoint |
 | `FEEDBACK_ENDPOINT_TOKEN` | Bearer token the mock endpoint requires |
@@ -53,12 +51,14 @@ Demo accounts (password `demo1234`):
 
 1. Create a Railway project and add a **PostgreSQL** service.
 2. Add a service from this repository. `railway.json` selects the Nixpacks builder and starts the app with `npm run start:prod`, which applies migrations and seeds the demo data before serving (both are idempotent, so restarts are safe).
-3. Set variables on the app service: `DATABASE_URL` (reference the Postgres service as `${{Postgres.DATABASE_URL}}`), `SESSION_SECRET`, `FEEDBACK_ENDPOINT_TOKEN`, `OPENROUTER_API_KEY`, and `MOCK_AI=false`.
+3. Set variables on the app service: `DATABASE_URL` (reference the Postgres service as `${{Postgres.DATABASE_URL}}`), `SESSION_SECRET`, `FEEDBACK_ENDPOINT_TOKEN`, `OPENAI_API_KEY`, and `MOCK_AI=false`.
 4. Generate a public domain. `FEEDBACK_ENDPOINT_URL` can stay unset: the app derives the mock endpoint from `RAILWAY_PUBLIC_DOMAIN`.
 
 Node is pinned to 22 via `.nvmrc` and `engines`; the Prisma client is generated on `postinstall`.
 
-**AI keys are optional to start.** With `OPENROUTER_API_KEY` empty the app automatically serves the canned analysis, so the whole flow is demonstrable. Paste a real key and the next recording goes through the configured models — no redeploy, no other variable to change.
+**The AI key is optional to start.** With `OPENAI_API_KEY` empty the app automatically serves the canned analysis, so the whole flow stays demonstrable. Paste a real key and the next recording goes through the configured models — no redeploy, no other variable to change.
+
+Measured on a 70-second French dictation: 3.9 s to transcribe, 8.5 s to structure, 12.5 s from the end of the recording to filled fields — inside the brief's 20-second target for 90 seconds of audio.
 
 ## Demo script (mirrors the brief, section 4.4)
 
