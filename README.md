@@ -63,6 +63,26 @@ Measured on a 90-second-class French dictation with the shipped defaults: about 
 
 The model choice was measured, not assumed. `gpt-5-mini` ran slower than `gpt-5` on this task, so size is not the lever. `gpt-5-pro` took 117 s and returned the same fields, which rules it out for someone standing on a doorstep. At `high` reasoning effort `gpt-5` spent ten extra seconds and produced the same values as `medium`, so `medium` ships.
 
+## What an administrator can configure
+
+Nothing below needs a release; it is all in the network view.
+
+| Page | What it controls |
+|---|---|
+| Feedback fields | The criteria the AI fills in: name, optional description, answer type (free text, rating, choice from a list), order, active or not. The key sent to the endpoint is derived once and then frozen, because submitted feedback refers to it. |
+| Viewings | Assign a viewing to an agent by hand, cancel or reopen one, and read the feedback that came back — including the exact payload sent to the endpoint. |
+| Agents | Create agents and administrators, issue a temporary password, reset one. Everyone changes their own password under My account. |
+| Zoho connection | Credentials and data centre, the configurable rule that recognises a property viewing, and the field mapping. Test the connection, pull the module's real field list, and run a read-only sync. |
+| Settings | Language of the filled fields, reminder delays, expiry, the outbound webhook, and a log of every signal sent. |
+
+## Several recordings on one viewing
+
+Agents rarely get everything out in one go. Each recording is kept as a take, and every take is handed the whole transcript so far together with what is currently on screen, so it extends or corrects earlier values rather than replacing them. A field revised by a later take is flagged and loses its confirmation, so the agent reads it again before submitting. The verbatim keeps every take in full.
+
+## Signals to the reminder engine
+
+The app never sends reminders — it says when they are due (brief, package 7). `feedback_due`, `feedback_reminder`, `feedback_received` and `feedback_expired` go to the configured webhook, with the delays set in Settings. Every attempt is logged, including the ones with no URL configured yet, so the contract can be reviewed before the agency hands over their endpoint. `POST /api/state-check` advances the state machine on a schedule, and `GET /api/pending-viewings` is the read API the brief offers as an alternative to webhooks. Both take the endpoint bearer token.
+
 ## Demo script (mirrors the brief, section 4.4)
 
 1. Sign in as an agent; the list shows viewings in **To do / Done / Expired**, with how long each feedback has been waiting.
@@ -70,7 +90,8 @@ The model choice was measured, not assumed. `gpt-5-mini` ran slower than `gpt-5`
 3. Tap **Confirm my recording**. Ready-to-buy and enjoyed-the-viewing fill in the agent's own words; price perception and objections stay empty, flagged *"Not mentioned, please complete"* — nothing is invented.
 4. Tap the small mic **on the price field** and add one sentence — only that field updates.
 5. Edit any field with the pencil; confirm fields individually or hit **Confirm all and submit**. The payload goes to the endpoint in one call with an idempotency key; the viewing moves to Done and is never offered again.
-6. Sign in as the admin: response rate per agent, every viewing's status, failed submissions, CSV export. Admin access is written to an audit log.
-7. **Reset demo data** at the bottom of the admin view clears every draft and submission and restores the viewings with fresh timestamps, so the demo can be run as many times as you like.
+7. Record a **second take** saying what you forgot: the empty fields fill in, and anything you already had gets extended rather than overwritten.
+8. Sign in as the admin: response rate per agent and per branch, every viewing's status, failed submissions, CSV export. Opening a viewing shows the submitted feedback and the payload that went to the endpoint. Admin access is written to an audit log.
+9. **Reset demo data** at the bottom of the admin view clears every draft and submission and restores the viewings with fresh timestamps, so the demo can be run as many times as you like.
 
 Design system: see [docs/DESIGN_KIT.md](docs/DESIGN_KIT.md).
